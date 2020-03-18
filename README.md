@@ -32,7 +32,7 @@ This sample code is made available under a modified MIT license. See the LICENSE
 Docker (optional for building the lambda python package with updated https://pypi.python.org/ third-party libraries)
 
 ## Easy Deploy (us-east-1 only)
-If you do not need to modify the code, just deploy the included easy_deploy.yaml using AWS Cloudformation via the console.
+If you do not need to modify the code, just deploy the included easy_deploy.yaml using AWS Cloudformation via the console. If you are in a region other than us-east-1 you must do all of the following, including building a custom Lambda layer.
 
 ## Deploying (SAM / Script)
 Update the values in deploy.sh for your AWS account details.  
@@ -43,14 +43,18 @@ Update the values in deploy.sh for your AWS account details.
   | SES_SEND      | Email list to send to (comma separated)                |
   | SES_FROM      | SES Verified Sender Email                              |
   | SES_REGION    | SES Region                                             |
-  | COST_TAGS     | List Of Cost Tag Keys (comma separated)                |
+  | COST_TAGS     | List Of Cost Tag Keys (comma separated, cannot contain characters []:*?/\\)                |
   | CURRENT_MONTH | true / false for if report does current partial month  |
   | DAY_MONTH     | When to schedule a run. 6, for the 6th by default      |
   | TAG_KEY       | Provide tag key e.g. Name                              |
   | TAG_VALUE_FILTER       | Provide tag value to filter e.g. Prod*        |
   | LAST_MONTH_ONLY         | Specify true if you wish to generate for only last month  |
 
-And then run `sh deploy.sh`
+* The IAM user that provides the API credentials needs to have AWSLambdaFullAccess permission policy
+* Create the S3 bucket defined above `aws s3 mb s3://my-bucket-name`
+* run `sh deploy.sh`
+
+If the deploy fails, you may be stuck in a state where you cannot deploy until the cloudformation stack is deleted.
 
 ## Deploy Manually (Lambda Console)
 
@@ -72,10 +76,13 @@ https://docs.aws.amazon.com/lambda/latest/dg/tutorial-scheduled-events-test-func
 Run build.sh to build a new AWS lambda layer with the required Python libraries.
 This requires Docker, as it builds the package in an Amazon Linux container.
 
-`sh build.sh`
+* `sh build.sh`
+* Upload the layer.zip file into an S3 bucket in the same region
+* build the layer `aws lambda publish-layer-version --layer-name my-layer --description "My layer" --license-info "MIT" --content S3Bucket=lambda-layers-us-east-2-YOUR-ACCOUNT-NUMBER,S3Key=layer.zip --compatible-runtimes python3.6`
+* Add the ARN output when built to `src/sam.yaml`
 
 ## Customise the report
-Edit the `main_handler` segment of src/lambda.py  
+Edit the `main_handler` segment of src/lambda.py and re-run the build script
 
 ```python
 def main_handler(event=None, context=None): 
